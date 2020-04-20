@@ -4,50 +4,66 @@
 
 ### Features
 
+- Compatible with RTOS.
 - Accuracy is around 1us.
-- Easy switch between Release/Debug mode by defining `USE_CORTEX_PROFILE`.
-- FreeRTOS compatibility.
+- Easy switch between Release/Debug mode.
 
 ---
 
 #### Usage
 
-Start profiling session.
+- Initalize profiler:
+
+```c  
+  CORTEX_PROFILE_BEGIN(
+    72000000, /* System core clock value            */
+    printf    /* Any printf implementation callback */
+  );
+```
+
+- Start profiling session:
 
 ```c
 CORTEX_PROFILE_BEGIN("session name");
 ```
 
-Insert timestamp command as many times as necessary.
+- Insert event command after each tracked case:
+
+```c
+DoAwesomeWork();
+CORTEX_PROFILE_EVENT("DoAwesomeWork() event");
+```
 
 > The maximum number of events may be configured in `cortex_profile.h` file by assign a new value to `CORTEX_PROFILE_MAX_EVENTS`
 
-```c
-CORTEX_PROFILE_EVENT("event name");
-```
 
-Close profiling session.  
-
+- End profiling session:
 
 ```c
 CORTEX_PROFILE_END();
 ```
+
 > :warning: **Don't forget** to end the seesion to restore global IRQ settings.
 
-Build your program with `USE_CORTEX_PROFILE` define.
+- Build your program in debug mode with `USE_CORTEX_PROFILE` define:
 
 ```bash
-make -D USE_CORTEX_PROFILE ...
+make -D USE_CORTEX_PROFILE my_program.c -o my_program
 ```
 
-Run.
+- Run.
 
 ---
 
-### Example code
+### Example
 
 ```cpp
-  CORTEX_PROFILE_INIT(SystemCoreClock); /** e.g. 72000000 Hz */
+  CORTEX_PROFILE_INIT(
+    72000000,
+    printf
+  );
+
+  ...
 
   CORTEX_PROFILE_BEGIN("Startup your job");
 
@@ -69,24 +85,24 @@ Run.
   CORTEX_PROFILE_END();
 ```
 
-### Example output
+### Output
 
 ```
 Profiling "Startup your job" sequence: 
 |---------- Event ----------|--- Timestamp ---|----- Delta -----|
-| Initialized flawless task |            6 us |            6 us |
-| Turn on LED               |            7 us |            1 us |
-| DoAwesomeWork 1000 ticks  |          133 us |          126 us |
-| Turn off LED              |          135 us |            2 us |
-| DoAwesomeWork 5000 ticks  |          761 us |          626 us |
+| Initialized flawless task |            8 us |            8 us |
+| Turn on LED               |           10 us |            2 us |
+| DoAwesomeWork 1000 ticks  |          135 us |          125 us |
+| Turn off LED              |          137 us |            2 us |
+| DoAwesomeWork 5000 ticks  |          763 us |          626 us |
 ```
 
 ---
 
 ### Notes
 
-To redirect data to SWV or UART I prefer to use tiny [printf](https://github.com/mpaland/printf) implementation 
-which included in my projects by default. Feel free to choose whatever you want ;)
+To redirect data to SWV/UART I prefer to use tiny [printf](https://github.com/mpaland/printf) 
+implementation for embedded systems. Feel free to choose whatever you want ;)
 
 ### Redirection
 

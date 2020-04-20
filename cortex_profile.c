@@ -1,9 +1,9 @@
 /* ------------------------ System includes -------------------------------- */
 #include <inttypes.h>
+#include <stddef.h>
 
 /* ------------------------ Project includes ------------------------------- */
 #include "cortex_profile.h"
-#include "printf.h"
 
 /* ------------------------ Defines ---------------------------------------- */
 /**
@@ -39,13 +39,13 @@
 /* ------------------------ Types ------------------------------------------ */
 typedef struct
 {
-  const char *event_name;
+  const char* event_name;
   uint32_t    timestamp;
 } event_t;
 
 typedef struct
 {
-  const char *profile_name;
+  const char* profile_name;
   event_t     events[CORTEX_PROFILE_MAX_EVENTS];
   uint8_t     event_count;
   uint32_t    timezero;
@@ -53,6 +53,9 @@ typedef struct
 
 /* ------------------------ Implementation --------------------------------- */
 #if defined(USE_CORTEX_PROFILE)
+
+/** Output print callback function (e.g. printf from <stdio.h> or another) */
+static int (*printer)(const char*, ...) = NULL; 
 
 /** Processor's tick rate us */
 static uint32_t tick_rate_us = 0;
@@ -66,20 +69,21 @@ static cortex_profile_t profiler = {0};
  */
 static void cortex_profile_print()
 {
-  printf("Profiling \"%s\" sequence: \r\n"
-         "|---------- Event ----------|--- Timestamp ---|----- Delta -----|\r\n",
-         (&profiler)->profile_name);
+	printer(
+	    "Profiling \"%s\" sequence: \r\n"
+	    "|---------- Event ----------|--- Timestamp ---|----- Delta -----|\r\n",
+	    (&profiler)->profile_name);
 
-  uint32_t timezero_us = 0;
+	uint32_t timezero_us = 0;
   for (uint8_t i = 0; i < (&profiler)->event_count; ++i) {
     event_t* event        = &(&profiler)->events[i];
     int32_t  timestamp_us = event->timestamp / tick_rate_us;
     int32_t  delta_us     = timestamp_us - timezero_us;
     timezero_us           = timestamp_us;
-    printf("| %-25s | %12ld us | %12ld us |\r\n", 
+    printer("| %-25s | %12ld us | %12ld us |\r\n", 
            event->event_name, timestamp_us, delta_us);
   }
-  printf("\r\n");
+  printer("\r\n");
 }
 
 /**
@@ -88,11 +92,12 @@ static void cortex_profile_print()
  * 
  * @param core_clock 
  */
-void cortex_profile_init(uint32_t core_clock)
+void cortex_profile_init(uint32_t core_clock,
+                         int (*printer_callback)(const char *, ...))
 {
   /* Check whether the implementation supports a cycle counter. */
   if (CORTEX_DWT_CTRL & (1 << 25)) {
-    printf("Cycle counter not supported.\n");
+    printer("Cycle counter not supported.\n");
     return;
   }
 
@@ -101,6 +106,9 @@ void cortex_profile_init(uint32_t core_clock)
 
   /* Compute processor tick rate in us */
   tick_rate_us = core_clock / 1000000;
+
+  /* Initialize output callback function */
+  printer = printer_callback;
 }
 
 /**
@@ -109,7 +117,7 @@ void cortex_profile_init(uint32_t core_clock)
  * 
  * @param profile_name 
  */
-void cortex_profile_begin(const char *profile_name)
+void cortex_profile_begin(const char* profile_name)
 {
   /* Disable global IRQ */
   ENTER_CRITICAL_SECTION();
@@ -131,10 +139,10 @@ void cortex_profile_begin(const char *profile_name)
  * 
  * @param event_name 
  */
-void cortex_profile_event(const char *event_name)
+void cortex_profile_event(const char* event_name)
 {
   if ((&profiler)->event_count == CORTEX_PROFILE_MAX_EVENTS) {
-    printf("Profiler reached maximum number of events.\n");
+    printer("Profiler reached maximum number of events.\n");
     return;
   }
 
@@ -154,7 +162,7 @@ void cortex_profile_event(const char *event_name)
 void cortex_profile_end()
 {
   if ((&profiler)->event_count == 0) {
-    printf("There are no events in profiler.\n");
+    printer("There are no events in profiler.\n");
     return;
   }
 
